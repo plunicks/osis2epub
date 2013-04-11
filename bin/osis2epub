@@ -42,7 +42,9 @@ GetOptions(
 if ($opt{output_dir}) {
     # user-specified dir, which we'll keep
     $opt{_output_dir_set} = 1;
-    mkdir $opt{output_dir} unless -d $opt{output_dir};
+    unless (-d $opt{output_dir}) {
+        mkdir $opt{output_dir} or die "Failed to create output dir $opt{output_dir}: $!\n";
+    }
 } else {
     # use a temp. dir, which will be cleaned up
     $opt{output_dir} = tempdir(CLEANUP => 1);
