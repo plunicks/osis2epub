@@ -55,11 +55,11 @@ if ($opt{translation_abbrev}) {
 }
 die "An output file name (-o) is required\n" unless
     length($opt{output_file}) or !$opt{html};
-if (-e $opt{output_file} && !$opt{force}) {
+if (-e $opt{output_file} && !$opt{force} && (!$opt{html} || $opt{epub})) {
     print STDERR "Refusing to overwrite existing file without --force.\n";
     exit 3;
 }
-open my $output_file, ">$opt{output_file}";
+open my $output_file, ">$opt{output_file}" if !$opt{html} && !$opt{epub}; # txt
 
 my %current = (
     book_name => undef,
