@@ -1,0 +1,411 @@
+#!/usr/bin/perl
+
+use strict;
+use utf8;
+use encoding qw(utf8);
+use open qw(:encoding(utf8));
+use warnings;
+
+use XML::Parser;
+use Getopt::Long;
+use File::Temp qw(tempdir);
+
+my %opt = (
+    verse_per_line => 0, # one verse per line, as KJV is traditionally formatted
+    indent_paragraphs => 1,
+    html => 1,
+    epub => 1,
+    superscript_verse_numbers => 1,
+    big_chapter_numbers => 0,
+    output_dir => undef,
+    output_file => undef,
+    force => 0, # open output file even if a file by that name already exists
+    translation_abbrev => undef,
+    translation_name => undef,
+    );
+
+Getopt::Long::Configure(qw(gnu_getopt));
+GetOptions(
+    '1|verse-per-line!' => \$opt{verse_per_line},
+    'indent-paragraphs|indent!' => \$opt{indent_paragraphs},
+    'html!' => \$opt{html},
+    'epub!' => \$opt{epub},
+    'big-chapter-numbers!' => \$opt{big_chapter_numbers},
+    'superscript-verse-numbers|superscript!' => \$opt{superscript_verse_numbers},
+    'D|output-directory|output-dir=s' => \$opt{output_dir},
+    'o|output-file|output=s' => \$opt{output_file},
+    'f|force!' => \$opt{force},
+    'a|translation-abbrev|translation=s' => \$opt{translation_abbrev},
+    't|translation-name=s' => \$opt{translation_name},
+    );
+
+if ($opt{output_dir}) {
+    # user-specified dir, which we'll keep
+    $opt{_output_dir_set} = 1;
+    mkdir $opt{output_dir} unless -d $opt{output_dir};
+} else {
+    # use a temp. dir, which will be cleaned up
+    $opt{output_dir} = tempdir(CLEANUP => 1);
+}
+my @filelist;
+
+if ($opt{translation_abbrev}) {
+    $opt{output_file} ||= $opt{translation_abbrev} .
+        $opt{epub} ? '.epub' : 'txt';
+}
+die "An output file name (-o) is required\n" unless
+    length($opt{output_file}) or !$opt{html};
+if (-e $opt{output_file} && !$opt{force}) {
+    print STDERR "Refusing to overwrite existing file without --force.\n";
+    exit 3;
+}
+open my $output_file, ">$opt{output_file}";
+
+my %current = (
+    book_name => undef,
+    chapter_num => undef,
+    verse_num => undef,
+    );
+
+my $xp = XML::Parser->new(
+    Handlers => {
+        Start => \&xml_start,
+        End => \&xml_end,
+        Char => \&xml_char,
+    });
+
+#####
+my %flag = (
+    in_paragraph => 0,
+    last_tag => undef,
+    last_item => undef,
+    new_verse => undef, # no text yet in current verse
+    newlines => 0, # kludge to avoid ever having two blank lines in a row
+    );
+my %in_element;
+my $in_line = 0; # within a line;
+sub xml_start {
+    my ($expat, $elem, %attr) = @_;
+    $in_element{$elem}++;
+    my %handlers = (
+        book => sub {
+            # theoretically this element should enclose the whole book,
+            #   but it doesn't, for now
+            my %attr = @_;
+            if ($opt{html}) {
+                # this would be in a separate HTML file
+                #   as a title page for the book
+                print "<title class=\"book_name\">$attr{name}</title>\n";
+            } else {
+                print "\n\n$attr{name}\n";
+            }
+        },
+        chapter => sub {
+            # theoretically this element should enclose the whole chapter,
+            #   but it doesn't, for now
+            my %attr = @_;
+            if ($opt{html}) {
+                # this would be in a separate HTML file per chapter...
+                if ($opt{big_chapter_numbers}) {
+                    print "<br />\n";
+                    print "<span class=\"big_chapter_num\">$attr{num}</span>";
+                } else {
+                    print
+                        "<h2 class=\"chapter_header\">$current{book_name} $attr{num}</h2>\n";
+                }
+            } else {
+                print "\n$current{book_name} $attr{num}\n\n";
+            }
+        },
+        verse => sub {
+            my %attr = @_;
+            # delay printing verse number until next char handler run
+            $current{verse_num} = $attr{num};
+            $flag{new_verse} = 1;
+        },
+        'q' => sub {
+            my %attr = @_;
+            # level
+            # marker ” or ’
+            # eID
+            # call xml_char so delayed verse number can be printed
+            xml_char(undef, $attr{marker});
+        },
+        divineName => sub {
+            my %attr = @_;
+            # no attr; surrounds text
+            # handled in xml_char
+        },
+        foreign => sub {
+            my %attr = @_;
+            # type=x-selah
+        },
+        l => sub {
+            my %attr = @_;
+            # eID
+            # sID
+            # type
+            #   x-br
+            #   x-indent
+            #   x-declares
+            # (either eID or eID|type or sID or sID|type)
+
+            if (defined $attr{type} && $attr{type} eq 'x-indent') {
+                # call xml_char to allow delayed verse number printing
+                xml_char(undef, $opt{html} ? "&nbsp;&nbsp;" : "  ");
+                return;
+            }
+
+            # output no more than one concurrent blank line
+            return if $flag{newlines} >= 2;
+
+            if ($flag{last_tag}[0] eq 'verse') {
+                return if $flag{newlines}; # case: Numbers 6:25, etc.
+                $flag{newlines}++;
+                print "<br />" if $opt{html};
+                print "\n";
+                $in_line = 0;
+                return;
+            }
+
+            # avoid extra duplicate lines
+            # case: Genesis 2:23 (<l x-br><l>
+            if (defined $flag{last_item}[0] && $flag{last_item}[0] eq 'l') {
+                return;
+            }
+
+            $flag{newlines}++;
+            print "<br />" if $opt{html};
+            print "\n";
+            $in_line = 0;
+        },
+        lb => sub {
+            my %attr = @_;
+            # type:
+            #   x-end-paragraph
+            #   x-begin-paragraph
+            # type and subType
+            if ($attr{type} eq 'x-end-paragraph') {
+                $flag{in_paragraph} = 0;
+                if ($opt{html}) {
+                    print "</p>\n";
+                } else {
+                    print "\n\n";
+                }
+                $flag{newlines} = 2;
+                $in_line = 0;
+            } elsif ($attr{type} eq 'x-begin-paragraph') {
+                $flag{in_paragraph} = 1;
+                if ($opt{html}) {
+                    print "\n<p>";
+                    print "&nbsp;&nbsp;" if $opt{indent_paragraphs};
+                } else {
+                    if ($flag{last_tag}[0] ne 'lb' or
+                        $flag{last_tag}[1]{type} ne 'x-end-paragraph') {
+                        print "\n" x (2 - $flag{newlines});
+                    }
+                    print "  " if $opt{indent_paragraphs};
+                }
+                $in_line = 0;
+            }
+        },
+        # this sequence is common at the end of the last verse of a paragraph:
+        #  <lb type="x-end-paragraph"/> <lb type="x-begin-paragraph"/><milestone type="line"/>
+        milestone => sub {
+            my %attr = @_;
+
+            if ($in_line) {
+                print "<br />" if $opt{html} and $opt{verse_per_line};
+                print $opt{verse_per_line} ? "\n" : " ";
+            }
+        },
+        lg => sub {
+            my %attr = @_;
+            # only eID or sID
+        },
+    );
+    if (exists $handlers{$elem}) {
+        $handlers{$elem}->(%attr);
+    }
+    $flag{last_tag} = [$elem, \%attr];
+    $flag{last_item} = [$elem, \%attr];
+
+}
+sub xml_end {
+    my ($expat, $elem) = @_;
+    $in_element{$elem}--;
+}
+sub xml_char {
+    my ($expat, $string) = @_;
+    # skip whitespace between tags
+    return if $string eq ' ';
+
+    if ($flag{new_verse}) {
+        if ($opt{html}) {
+            if ($current{verse_num} != 1 or ! $opt{big_chapter_numbers}) {
+                print "<span class=\"verse_num\">";
+                print "<sup>" if $opt{superscript_verse_numbers};
+                print $current{verse_num};
+                print "</sup>" if $opt{superscript_verse_numbers};
+                print "</span> ";
+            }
+        } else {
+            print "$current{verse_num} ";
+        }
+        $flag{new_verse} = 0;
+    }
+    $flag{newlines} = 0;
+
+    $in_line = 1;
+
+    if ($opt{html} and $in_element{divineName}) {
+        print "<span class=\"divine_name\">$string</span>";
+    } else {
+        print $string;
+    }
+    undef $flag{last_item};
+}
+
+#####
+if ($opt{html}) {
+    my $filename;
+
+    ## Generate stylesheet
+    close STDOUT;
+    $filename = sprintf("$opt{output_dir}/style.css");
+    open STDOUT, ">$filename";
+    push @filelist, "style.css";
+
+    print << "    EOF;";
+    .divine_name {
+        font-variant: small-caps;
+    }
+
+    .verse_num {
+    }
+
+    .big_chapter_num {
+        float: left;
+        font-size: 3em;
+        line-height: 0.6em;
+        padding-right: 0.15em;
+    }
+    EOF;
+
+    ## Generate title page
+    close STDOUT;
+    $filename = sprintf("$opt{output_dir}/The Holy Bible.html");
+    open STDOUT, ">$filename";
+    push @filelist, "The Holy Bible.html";
+
+    print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    print "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
+    print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
+    print "<head>\n";
+    print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
+    printf("<title>The Holy Bible%s</title>\n",
+           $opt{translation_name} ? " - $opt{translation_name}" : '');
+    print "</head>\n";
+    print "<br />\n" x 8;
+    print "<h1 align=\"center\">The Holy Bible</h1>\n";
+    print "<br />\n";
+    print "<h2 align=\"center\">$opt{translation_name}</h2>\n";
+    print "</body>\n</html>\n";
+} elsif (length($opt{output_file})) {
+    # text mode with --output-file (-o)
+    close STDOUT;
+    *STDOUT = $output_file; # already opened
+}
+
+sub getline { $_ = <STDIN>; chomp; $_ }
+until (eof STDIN) {
+    $_ = getline;
+
+    s/^(Revelation) of John/$1/; # use the short name of this book
+
+    if (/^(.*?) (?:(\d+):)?(\d+): (.*)/) {
+        # Consider chapter number optional because some systems of notation do
+        # not include one for books of only one chapter, such as Jude.
+        my $book_name = $1;
+        my $chapter_num = $2;
+        my $verse_num = $3;
+        my $verse_text = $4;
+
+        if (!defined $current{book_name} or
+            $book_name ne $current{book_name}) {
+            $current{book_name} = $book_name;
+            undef $current{chapter_num};
+
+            if ($opt{html}) {
+                print "</body>\n</html>\n";
+
+                # open a separate HTML file per book
+                close STDOUT;
+                my $filename = sprintf("$opt{output_dir}/%s.html", $book_name);
+                open STDOUT, ">$filename";
+                push @filelist, "$book_name.html";
+
+                print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+                print "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
+                print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
+                print "<head>\n";
+                print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
+            }
+
+            $xp->parse("<book name=\"$book_name\" />");
+
+            if ($opt{html}) {
+                print "</head>\n<body><h1 align=\"center\">$book_name</h1>\n";
+            }
+        }
+
+        if (!defined $current{chapter_num} or
+            $chapter_num ne $current{chapter_num}) {
+            $current{chapter_num} = $chapter_num;
+
+            $xp->parse("<chapter num=\"$chapter_num\" />");
+        }
+
+        $current{verse_num} = $verse_num;
+
+        $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\">$verse_text</verse>");
+
+    } elsif (/^\([A-Z]{2,4}\)\s*$/) { # e.g. final "(ESV)" at EOF
+        # we can set the translation abbreviation from this line if the user
+        # didn't already set one
+        $opt{translation_abbrev} ||= $1;
+    } else { # not in OSIS
+        die "Not valid: $_";
+    }
+}
+
+if ($opt{html}) {
+    print "</body>\n</html>\n";
+    close STDOUT;
+
+    open my $filelist, ">$opt{output_dir}/files.list";
+    print {$filelist} "$_\n" foreach @filelist;
+    close $filelist;
+}
+
+if ($opt{epub}) {
+    ## use pkg-epub to create the EPUB
+
+    my $ebook_title;
+    if ($opt{short_ebook_title}) { # e.g. "ESV Bible"
+        my $ebook_title = ($opt{translation_abbrev}
+                           ? "$opt{translation_abbrev} " : '') . 'Bible';
+    } else { # e.g. "The Holy Bible - English Standard Version"
+        $ebook_title = sprintf("The Holy Bible%s",
+                               $opt{translation_name}
+                               ? " - $opt{translation_name}" : '');
+    }
+
+    my @rel_paths = map { "$opt{output_dir}/$_" } @filelist;
+    system("pkg-epub",
+           -o => $opt{output_file},
+           -a => 'Various',
+           -t => $ebook_title,
+           @rel_paths
+        );
+}
