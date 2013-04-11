@@ -406,6 +406,7 @@ if ($opt{epub}) {
            -o => $opt{output_file},
            -a => 'Various',
            -t => $ebook_title,
+           ($opt{_output_dir_set} ? () : ('--strip-components' => 2)),
            @rel_paths
         );
 }
