@@ -239,8 +239,6 @@ sub xml_end {
 }
 sub xml_char {
     my ($expat, $string) = @_;
-    # skip whitespace between tags
-    return if $string eq ' ';
 
     if ($flag{new_verse}) {
         if ($opt{html}) {
