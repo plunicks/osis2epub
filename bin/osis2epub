@@ -131,7 +131,7 @@ sub xml_start {
             # marker ” or ’
             # eID
             # call xml_char so delayed verse number can be printed
-            xml_char(undef, $attr{marker});
+            xml_char(undef, $attr{marker}) if defined $attr{marker};
         },
         divineName => sub {
             my %attr = @_;
