@@ -311,7 +311,7 @@ if ($opt{html}) {
     print "<br />\n" x 8;
     print "<h1 align=\"center\">The Holy Bible</h1>\n";
     print "<br />\n";
-    print "<h2 align=\"center\">$opt{translation_name}</h2>\n";
+    print "<h2 align=\"center\">".($opt{translation_name}||'')."</h2>\n";
     print "</body>\n</html>\n";
 } elsif (length($opt{output_file})) {
     # text mode with --output-file (-o)
