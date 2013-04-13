@@ -56,8 +56,8 @@ if ($opt{translation_abbrev}) {
         $opt{epub} ? '.epub' : 'txt';
 }
 die "An output file name (-o) is required\n" unless
-    length($opt{output_file}) or !$opt{html} || !$opt{epub};
-if (-e $opt{output_file} && !$opt{force} && (!$opt{html} || $opt{epub})) {
+    defined $opt{output_file} or !$opt{html} || !$opt{epub};
+if ((!$opt{html} || $opt{epub}) && -e $opt{output_file} && !$opt{force}) {
     print STDERR "Refusing to overwrite existing file without --force.\n";
     exit 3;
 }
