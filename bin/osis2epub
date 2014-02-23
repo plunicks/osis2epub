@@ -17,6 +17,7 @@ my %opt = (
     epub => 1,
     superscript_verse_numbers => 1,
     big_chapter_numbers => 0,
+    nobreak_verse_numbers => 1,
     output_dir => undef,
     output_file => undef,
     force => 0, # open output file even if a file by that name already exists
@@ -32,6 +33,7 @@ GetOptions(
     'epub!' => \$opt{epub},
     'big-chapter-numbers!' => \$opt{big_chapter_numbers},
     'superscript-verse-numbers|superscript!' => \$opt{superscript_verse_numbers},
+    'nobreak-verse-numbers|nobreak!' => \$opt{nobreak_verse_numbers},
     'D|output-directory|output-dir=s' => \$opt{output_dir},
     'o|output-file|output=s' => \$opt{output_file},
     'f|force!' => \$opt{force},
@@ -247,7 +249,8 @@ sub xml_char {
                 print "<sup>" if $opt{superscript_verse_numbers};
                 print $current{verse_num};
                 print "</sup>" if $opt{superscript_verse_numbers};
-                print "</span> ";
+                print "</span>";
+                print $opt{nobreak_verse_numbers} ? '&nbsp;' : ' ';
             }
         } else {
             print "$current{verse_num} ";
