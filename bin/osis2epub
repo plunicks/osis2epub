@@ -23,6 +23,7 @@ my %opt = (
     force => 0, # open output file even if a file by that name already exists
     translation_abbrev => undef,
     translation_name => undef,
+    title => 'The Holy Bible',
     );
 
 Getopt::Long::Configure(qw(gnu_getopt));
@@ -40,6 +41,7 @@ GetOptions(
     'f|force!' => \$opt{force},
     'a|translation-abbrev|translation=s' => \$opt{translation_abbrev},
     't|translation-name=s' => \$opt{translation_name},
+    'T|title=s' => \$opt{title},
     );
 
 if ($opt{output_dir}) {
@@ -305,20 +307,20 @@ if ($opt{html}) {
 
     ## Generate title page
     close STDOUT;
-    $filename = sprintf("$opt{output_dir}/The Holy Bible.html");
+    $filename = sprintf("$opt{output_dir}/$opt{title}.html");
     open STDOUT, ">$filename";
-    push @filelist, "The Holy Bible.html";
+    push @filelist, "$opt{title}.html";
 
     print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     print "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
     print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
     print "<head>\n";
     print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
-    printf("<title>The Holy Bible%s</title>\n",
+    printf("<title>$opt{title}%s</title>\n",
            $opt{translation_name} ? " - $opt{translation_name}" : '');
     print "</head>\n";
     print "<br />\n" x 8;
-    print "<h1 align=\"center\">The Holy Bible</h1>\n";
+    print "<h1 align=\"center\">$opt{title}</h1>\n";
     print "<br />\n";
     print "<h2 align=\"center\">".($opt{translation_name}||'')."</h2>\n";
     print "</body>\n</html>\n";
@@ -407,7 +409,7 @@ if ($opt{epub}) {
         my $ebook_title = ($opt{translation_abbrev}
                            ? "$opt{translation_abbrev} " : '') . 'Bible';
     } else { # e.g. "The Holy Bible - English Standard Version"
-        $ebook_title = sprintf("The Holy Bible%s",
+        $ebook_title = sprintf("$opt{title}%s",
                                $opt{translation_name}
                                ? " - $opt{translation_name}" : '');
     }
