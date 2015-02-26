@@ -118,6 +118,7 @@ sub xml_start {
             # theoretically this element should enclose the whole chapter,
             #   but it doesn't, for now
             my %attr = @_;
+            return unless defined $attr{num} and $attr{_osis2epub};
             if ($opt{html}) {
                 # this would be in a separate HTML file per chapter...
                 if ($opt{big_chapter_numbers}) {
@@ -376,7 +377,7 @@ until (eof $input_fh) {
             $chapter_num ne $current{chapter_num}) {
             $current{chapter_num} = $chapter_num;
 
-            $xp->parse("<chapter num=\"$chapter_num\" />");
+            $xp->parse("<chapter num=\"$chapter_num\" _osis2epub=\"true\" />");
         }
 
         $current{verse_num} = $verse_num;
