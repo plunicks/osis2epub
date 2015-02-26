@@ -239,7 +239,7 @@ sub xml_start {
         milestone => sub {
             my %attr = @_;
 
-            if ($in_line) {
+            if ($in_line && $attr{type} eq 'line') {
                 print "<br />" if $opt{html} and $opt{verse_per_line};
                 print $opt{verse_per_line} ? "\n" : " ";
             }
