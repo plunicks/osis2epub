@@ -36,6 +36,7 @@ GetOptions(
     'nobreak-verse-numbers|nobreak!' => \$opt{nobreak_verse_numbers},
     'D|output-directory|output-dir=s' => \$opt{output_dir},
     'o|output-file|output=s' => \$opt{output_file},
+    'i|input-file|input=s' => \$opt{input_file},
     'f|force!' => \$opt{force},
     'a|translation-abbrev|translation=s' => \$opt{translation_abbrev},
     't|translation-name=s' => \$opt{translation_name},
@@ -52,6 +53,13 @@ if ($opt{output_dir}) {
     $opt{output_dir} = tempdir(CLEANUP => 1);
 }
 my @filelist;
+
+my $input_fh;
+if ($opt{input_file}) {
+    open $input_fh, $opt{input_file};
+} else {
+    $input_fh = *STDIN;
+}
 
 if ($opt{translation_abbrev}) {
     $opt{output_file} ||= $opt{translation_abbrev} .
@@ -320,8 +328,8 @@ if ($opt{html}) {
     *STDOUT = $output_file; # already opened
 }
 
-sub getline { $_ = <STDIN>; chomp; $_ }
-until (eof STDIN) {
+sub getline { $_ = <$input_fh>; chomp; $_ }
+until (eof $input_fh) {
     $_ = getline;
 
     s/^(Revelation) of John/$1/; # use the short name of this book
