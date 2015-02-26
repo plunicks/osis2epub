@@ -13,6 +13,7 @@ use File::Temp qw(tempdir);
 my %opt = (
     verse_per_line => 0, # one verse per line, as KJV is traditionally formatted
     indent_paragraphs => 1,
+    ignore_paragraphs => 0,
     html => 1,
     epub => 1,
     superscript_verse_numbers => 1,
@@ -30,6 +31,7 @@ Getopt::Long::Configure(qw(gnu_getopt));
 GetOptions(
     '1|verse-per-line!' => \$opt{verse_per_line},
     'indent-paragraphs|indent!' => \$opt{indent_paragraphs},
+    'ignore-paragraphs' => \$opt{ignore_paragraphs},
     'html!' => \$opt{html},
     'epub!' => \$opt{epub},
     'big-chapter-numbers!' => \$opt{big_chapter_numbers},
@@ -165,7 +167,7 @@ sub xml_start {
             #   x-declares
             # (either eID or eID|type or sID or sID|type)
 
-            if (defined $attr{type} && $attr{type} eq 'x-indent') {
+            if (defined $attr{type} && $attr{type} eq 'x-indent' && !$opt{ignore_paragraphs}) {
                 # call xml_char to allow delayed verse number printing
                 xml_char(undef, $opt{html} ? "&nbsp;&nbsp;" : "  ");
                 return;
@@ -200,7 +202,7 @@ sub xml_start {
             #   x-end-paragraph
             #   x-begin-paragraph
             # type and subType
-            if ($attr{type} eq 'x-end-paragraph') {
+            if ($attr{type} eq 'x-end-paragraph' and !$opt{ignore_paragraphs}) {
                 $flag{in_paragraph} = 0;
                 if ($opt{html}) {
                     print "</p>\n";
@@ -209,7 +211,7 @@ sub xml_start {
                 }
                 $flag{newlines} = 2;
                 $in_line = 0;
-            } elsif ($attr{type} eq 'x-begin-paragraph') {
+            } elsif ($attr{type} eq 'x-begin-paragraph' and !$opt{ignore_paragraphs}) {
                 $flag{in_paragraph} = 1;
                 if ($opt{html}) {
                     print "\n<p>";
