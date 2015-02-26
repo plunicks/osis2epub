@@ -15,6 +15,7 @@ my %opt = (
     indent_paragraphs => 1,
     ignore_paragraphs => 0,
     ignore_linebreaks => 0,
+    interverse => 0, # multiple texts interleaved: add newline after each verse
     html => 1,
     epub => 1,
     superscript_verse_numbers => 1,
@@ -34,6 +35,7 @@ GetOptions(
     'indent-paragraphs|indent!' => \$opt{indent_paragraphs},
     'ignore-paragraphs' => \$opt{ignore_paragraphs},
     'ignore-linebreaks' => \$opt{ignore_linebreaks},
+    'interverse' => \$opt{interverse},
     'html!' => \$opt{html},
     'epub!' => \$opt{epub},
     'big-chapter-numbers!' => \$opt{big_chapter_numbers},
@@ -382,6 +384,14 @@ until (eof $input_fh) {
             if ($opt{html}) {
                 print "</head>\n<body><h1 align=\"center\">$book_name</h1>\n";
             }
+        }
+
+        # add a newline after each set of versions of the same verse when
+        # producing a book from multiple texts interwoven
+        if ($opt{interverse} and
+            ((!defined $current{chapter_num} or $chapter_num ne $current{chapter_num}) or
+             (!defined $current{verse_num} or $verse_num ne $current{verse_num}))) {
+            print '<br />';
         }
 
         if (!defined $current{chapter_num} or
