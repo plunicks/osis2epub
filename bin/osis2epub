@@ -14,6 +14,7 @@ my %opt = (
     verse_per_line => 0, # one verse per line, as KJV is traditionally formatted
     indent_paragraphs => 1,
     ignore_paragraphs => 0,
+    ignore_linebreaks => 0,
     html => 1,
     epub => 1,
     superscript_verse_numbers => 1,
@@ -32,6 +33,7 @@ GetOptions(
     '1|verse-per-line!' => \$opt{verse_per_line},
     'indent-paragraphs|indent!' => \$opt{indent_paragraphs},
     'ignore-paragraphs' => \$opt{ignore_paragraphs},
+    'ignore-linebreaks' => \$opt{ignore_linebreaks},
     'html!' => \$opt{html},
     'epub!' => \$opt{epub},
     'big-chapter-numbers!' => \$opt{big_chapter_numbers},
@@ -176,6 +178,12 @@ sub xml_start {
             # output no more than one concurrent blank line
             return if $flag{newlines} >= 2;
 
+            if ($opt{ignore_linebreaks}) {
+                # keep some whitespace - don't run two lines together
+                print ' ' unless $flag{linebreak_whitespace}++;
+                return;
+            }
+
             if ($flag{last_tag}[0] eq 'verse') {
                 return if $flag{newlines}; # case: Numbers 6:25, etc.
                 $flag{newlines}++;
@@ -271,6 +279,7 @@ sub xml_char {
         $flag{new_verse} = 0;
     }
     $flag{newlines} = 0;
+    $flag{linebreak_whitespace} = 0;
 
     $in_line = 1;
 
