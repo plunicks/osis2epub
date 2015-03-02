@@ -214,7 +214,8 @@ sub xml_start {
             #   x-end-paragraph
             #   x-begin-paragraph
             # type and subType
-            if ($attr{type} eq 'x-end-paragraph' and !$opt{ignore_paragraphs}) {
+            if (defined $attr{type} and $attr{type} eq 'x-end-paragraph' and
+                !$opt{ignore_paragraphs}) {
                 $flag{in_paragraph} = 0;
                 if ($opt{html}) {
                     print "</p>\n";
@@ -223,7 +224,8 @@ sub xml_start {
                 }
                 $flag{newlines} = 2;
                 $in_line = 0;
-            } elsif ($attr{type} eq 'x-begin-paragraph' and !$opt{ignore_paragraphs}) {
+            } elsif (defined $attr{type} and $attr{type} eq 'x-begin-paragraph' and
+                     !$opt{ignore_paragraphs}) {
                 $flag{in_paragraph} = 1;
                 if ($opt{html}) {
                     print "\n<p>";
