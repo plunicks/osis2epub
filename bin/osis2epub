@@ -189,6 +189,7 @@ sub xml_start {
             if ($flag{last_tag}[0] eq 'verse') {
                 return if $flag{newlines}; # case: Numbers 6:25, etc.
                 $flag{newlines}++;
+                $current{delayed_text} = '';
                 print "<br />" if $opt{html};
                 print "\n";
                 $in_line = 0;
@@ -202,6 +203,7 @@ sub xml_start {
             }
 
             $flag{newlines}++;
+            $current{delayed_text} = '';
             print "<br />" if $opt{html};
             print "\n";
             $in_line = 0;
@@ -242,7 +244,10 @@ sub xml_start {
             my %attr = @_;
 
             if ($in_line && $attr{type} eq 'line') {
-                print "<br />" if $opt{html} and $opt{verse_per_line};
+                if ($opt{verse_per_line}) {
+                    $current{delayed_text} = '';
+                    print "<br />" if $opt{html};
+                }
                 print $opt{verse_per_line} ? "\n" : " ";
             }
         },
@@ -264,6 +269,18 @@ sub xml_end {
 }
 sub xml_char {
     my ($expat, $string) = @_;
+
+    # delay printing of whitespace, so as to prevent it from occurring at the
+    # ends of lines
+    if ($string =~ /^\s*$/) {
+        $current{delayed_text} .= $string;
+        return;
+    }
+
+    if ($current{delayed_text}) {
+        print $current{delayed_text};
+        $current{delayed_text} = '';
+    }
 
     if ($flag{new_verse}) {
         if ($opt{html}) {
