@@ -133,8 +133,11 @@ sub xml_start {
                     print "<br />\n";
                     print "<span class=\"big_chapter_num\">$attr{num}</span>";
                 } else {
+                    my $name = $current{book_name};
+                    $name =~ s/^(Psalm)s/$1/; # "Psalm 1" instead of "Psalms 1"
+
                     print
-                        "<h2 class=\"chapter_header\">$current{book_name} $attr{num}</h2>\n";
+                        "<h2 class=\"chapter_header\">$name $attr{num}</h2>\n";
                 }
             } else {
                 print "\n$current{book_name} $attr{num}\n\n";
