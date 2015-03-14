@@ -371,7 +371,7 @@ if ($opt{html}) {
     ## Generate title page
     close STDOUT;
     $filename = sprintf("$opt{output_dir}/$opt{title}.html");
-    open STDOUT, ">$filename";
+    open STDOUT, ">$filename" or die "Failed to create $filename: $!";
     push @filelist, "$opt{title}.html";
 
     print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
