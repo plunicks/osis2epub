@@ -12,6 +12,7 @@ use File::Temp qw(tempdir);
 
 my %opt = (
     verse_per_line => 0, # one verse per line, as KJV is traditionally formatted
+    italics => 1, # show words added for translation in italics (e.g. KJV)
     indent_paragraphs => 1,
     ignore_paragraphs => 0,
     ignore_linebreaks => 0,
@@ -32,6 +33,7 @@ my %opt = (
 Getopt::Long::Configure(qw(gnu_getopt));
 GetOptions(
     '1|verse-per-line!' => \$opt{verse_per_line},
+    'italics!' => \$opt{italics},
     'indent-paragraphs|indent!' => \$opt{indent_paragraphs},
     'ignore-paragraphs' => \$opt{ignore_paragraphs},
     'ignore-linebreaks' => \$opt{ignore_linebreaks},
@@ -257,6 +259,11 @@ sub xml_start {
             my %attr = @_;
             # only eID or sID
         },
+        transChange => sub {
+            my %attr = @_;
+            # attr type ("added"); surrounds text
+            # handled in xml_char
+        },
     );
     if (exists $handlers{$elem}) {
         $handlers{$elem}->(%attr);
@@ -305,10 +312,15 @@ sub xml_char {
     $in_line = 1;
 
     if ($opt{html} and $in_element{divineName}) {
-        print "<span class=\"divine_name\">$string</span>";
-    } else {
-        print $string;
+        $string = "<span class=\"divine_name\">$string</span>";
     }
+
+    if ($opt{html} and $in_element{transChange}) {
+        $string = qq{<span class="trans_change">$string</span>};
+    }
+
+    print $string;
+
     undef $flag{last_item};
 }
 
@@ -335,6 +347,12 @@ if ($opt{html}) {
         font-size: 3em;
         line-height: 0.6em;
         padding-right: 0.15em;
+    }
+    EOF;
+
+    print << "    EOF;" if $opt{italics};
+    .trans_change {
+        font-style: italic;
     }
     EOF;
 
