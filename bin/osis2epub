@@ -28,6 +28,7 @@ my %opt = (
     translation_abbrev => undef,
     translation_name => undef,
     title => 'The Holy Bible',
+    language => 'en',
     );
 
 Getopt::Long::Configure(qw(gnu_getopt));
@@ -50,6 +51,7 @@ GetOptions(
     'a|translation-abbrev|translation=s' => \$opt{translation_abbrev},
     't|translation-name=s' => \$opt{translation_name},
     'T|title=s' => \$opt{title},
+    'language|l=s' => \$opt{language},
     );
 
 if ($opt{output_dir}) {
@@ -536,6 +538,7 @@ if ($opt{epub}) {
            -o => $opt{output_file},
            -a => 'Various',
            -t => $ebook_title,
+           -l => $opt{language},
            ($opt{_output_dir_set} ? () : ('--strip-components' => 2)),
            @rel_paths
         );
