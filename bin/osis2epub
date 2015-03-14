@@ -349,8 +349,7 @@ if ($opt{html}) {
     print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
     print "<head>\n";
     print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
-    printf("<title>$opt{title}%s</title>\n",
-           $opt{translation_name} ? " - $opt{translation_name}" : '');
+    print "<title>Title</title>\n";
     print "</head>\n";
     print "<br />\n" x 8;
     print "<h1 align=\"center\">$opt{title}</h1>\n";
