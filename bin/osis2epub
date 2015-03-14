@@ -106,6 +106,7 @@ my %flag = (
     );
 my %in_element;
 my $in_line = 0; # within a line;
+my %chapter_count;
 sub xml_start {
     my ($expat, $elem, %attr) = @_;
     $in_element{$elem}++;
@@ -128,17 +129,21 @@ sub xml_start {
             my %attr = @_;
             return unless defined $attr{num} and $attr{_osis2epub};
             if ($opt{html}) {
+                (my $key = $current{book_name}) =~ s/ /%20/g;
+                my $a_name_st = qq{<a name="${key}%20$attr{num}">};
+
+                print "<br />$a_name_st\n";
                 # this would be in a separate HTML file per chapter...
                 if ($opt{big_chapter_numbers}) {
-                    print "<br />\n";
                     print "<span class=\"big_chapter_num\">$attr{num}</span>";
                 } else {
-                    my $name = $current{book_name};
-                    $name =~ s/^(Psalm)s/$1/; # "Psalm 1" instead of "Psalms 1"
+                    my $chapter_title = chapter_title($current{book_name},
+                                                      $attr{num});
 
                     print
-                        "<h2 class=\"chapter_header\">$name $attr{num}</h2>\n";
+                        "<h2 class=\"chapter_header\">$chapter_title</h2>\n";
                 }
+                print "</a>\n";
             } else {
                 print "\n$current{book_name} $attr{num}\n\n";
             }
@@ -392,7 +397,38 @@ if ($opt{html}) {
     *STDOUT = $output_file; # already opened
 }
 
+# return a chapter title, as in "Psalm 25", or, if only a book name is passed,
+# return the book name part of the chapter title
+sub chapter_title {
+    my ($name, $num) = @_;
+    $name =~ s/^(Psalm)s/$1/; # "Psalm 1" instead of "Psalms 1"
+    return $num ? "$name $num" : $name;
+}
+
+# generate a set of links to each chapter in the book
+sub generate_chapter_links {
+    my ($book_name) = @_;
+    (my $key = $book_name) =~ s/ /%20/g;
+
+    if ($chapter_count{$book_name}) {
+        my $name = chapter_title($book_name);
+        $name =~ s/ /&nbsp;/g;
+
+        my $out = qq{<p style="page-break-after: always; line-height: 1.5; text-align: center">\n};
+
+        $out .= join "&nbsp; ", map {
+            qq{<a href="#${key}%20$_">$name&nbsp;$_</a> &nbsp;<sub>•</sub>};
+        } 1..$chapter_count{$book_name};
+
+        $out .= "</p>\n";
+
+        return $out;
+    }
+}
+
 sub getline { $_ = <$input_fh>; chomp; $_ }
+
+my @lines;
 until (eof $input_fh) {
     $_ = getline;
 
@@ -406,52 +442,11 @@ until (eof $input_fh) {
         my $verse_num = $3;
         my $verse_text = $4;
 
-        if (!defined $current{book_name} or
-            $book_name ne $current{book_name}) {
-            $current{book_name} = $book_name;
-            undef $current{chapter_num};
+        push @lines, [$book_name, $chapter_num, $verse_num, $verse_text];
 
-            if ($opt{html}) {
-                print "</body>\n</html>\n";
-
-                # open a separate HTML file per book
-                close STDOUT;
-                my $filename = sprintf("$opt{output_dir}/%s.html", $book_name);
-                open STDOUT, ">$filename";
-                push @filelist, "$book_name.html";
-
-                print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-                print "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
-                print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
-                print "<head>\n";
-                print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
-            }
-
-            $xp->parse("<book name=\"$book_name\" />");
-
-            if ($opt{html}) {
-                print "</head>\n<body><h1 align=\"center\">$book_name</h1>\n";
-            }
-        }
-
-        # add a newline after each set of versions of the same verse when
-        # producing a book from multiple texts interwoven
-        if ($opt{interverse} and
-            ((!defined $current{chapter_num} or $chapter_num ne $current{chapter_num}) or
-             (!defined $current{verse_num} or $verse_num ne $current{verse_num}))) {
-            print '<br />';
-        }
-
-        if (!defined $current{chapter_num} or
-            $chapter_num ne $current{chapter_num}) {
-            $current{chapter_num} = $chapter_num;
-
-            $xp->parse("<chapter num=\"$chapter_num\" _osis2epub=\"true\" />");
-        }
-
-        $current{verse_num} = $verse_num;
-
-        $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\">$verse_text</verse>");
+        $chapter_count{$book_name} = $chapter_num
+            if !defined $chapter_count{$book_name} or
+            $chapter_num > $chapter_count{$book_name};
 
     } elsif (/^\([A-Z]{2,4}\)\s*$/) { # e.g. final "(ESV)" at EOF
         # we can set the translation abbreviation from this line if the user
@@ -460,6 +455,58 @@ until (eof $input_fh) {
     } else { # not in OSIS
         die "Not valid: $_";
     }
+}
+
+for (@lines) {
+    my ($book_name, $chapter_num, $verse_num, $verse_text) = @$_;
+
+    if (!defined $current{book_name} or
+        $book_name ne $current{book_name}) {
+        $current{book_name} = $book_name;
+        undef $current{chapter_num};
+
+        if ($opt{html}) {
+            print "</body>\n</html>\n";
+
+            # open a separate HTML file per book
+            close STDOUT;
+            my $filename = sprintf("$opt{output_dir}/%s.html", $book_name);
+            open STDOUT, ">$filename";
+            push @filelist, "$book_name.html";
+
+            print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+            print "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
+            print "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xml:lang=\"en\">\n";
+            print "<head>\n";
+            print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
+        }
+
+        $xp->parse("<book name=\"$book_name\" />");
+
+        if ($opt{html}) {
+            print "</head>\n<body><h1 align=\"center\">$book_name</h1>\n";
+            print generate_chapter_links($book_name);
+        }
+    }
+
+    # add a newline after each set of versions of the same verse when
+    # producing a book from multiple texts interwoven
+    if ($opt{interverse} and
+        ((!defined $current{chapter_num} or $chapter_num ne $current{chapter_num}) or
+         (!defined $current{verse_num} or $verse_num ne $current{verse_num}))) {
+        print '<br />';
+    }
+
+    if (!defined $current{chapter_num} or
+        $chapter_num ne $current{chapter_num}) {
+        $current{chapter_num} = $chapter_num;
+
+        $xp->parse("<chapter num=\"$chapter_num\" _osis2epub=\"true\" />");
+    }
+
+    $current{verse_num} = $verse_num;
+
+    $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\">$verse_text</verse>");
 }
 
 if ($opt{html}) {
