@@ -256,6 +256,15 @@ sub xml_start {
                     print "<br />" if $opt{html};
                 }
                 print $opt{verse_per_line} ? "\n" : " ";
+            } elsif ($attr{type} eq 'x-p' && !$opt{ignore_paragraphs}) {
+                # KJV has <milestone marker="¶" type="x-p"/> at the start of
+                # paragraphs, except not at the beginning of the first verse of
+                # a chapter
+                $flag{in_paragraph} = 1;
+                print "<p>" if $opt{html};
+                print $opt{html} ? "&nbsp;&nbsp;" : '  '
+                    if $opt{indent_paragraphs};
+                print "\n";
             }
         },
         lg => sub {
