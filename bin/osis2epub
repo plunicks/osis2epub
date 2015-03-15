@@ -542,12 +542,19 @@ for (@lines) {
         $chapter_num ne $current{chapter_num}) {
         $current{chapter_num} = $chapter_num;
 
+        warn "xp parse chapter $chapter_num\n";
         $xp->parse("<chapter num=\"$chapter_num\" _osis2epub=\"true\" />");
     }
 
     $current{verse_num} = $verse_num;
 
-    $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\" _osis2epub=\"true\">$verse_text</verse>");
+    eval {
+        $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\" _osis2epub=\"true\">$verse_text</verse>");
+    };
+    if ($@) {
+        warn "XML Parse Error at $book_name $chapter_num:$verse_num: $verse_text\n";
+        die $@;
+    }
 }
 
 if ($opt{html}) {
