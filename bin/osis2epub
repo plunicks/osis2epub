@@ -484,7 +484,7 @@ until (eof $input_fh) {
             if !defined $chapter_count{$book_name} or
             $chapter_num > $chapter_count{$book_name};
 
-    } elsif (/^\([A-Z]{2,4}\)\s*$/) { # e.g. final "(ESV)" at EOF
+    } elsif (/^\([a-z]*\)\s*$/i) { # e.g. final "(ESV)" at EOF
         # we can set the translation abbreviation from this line if the user
         # didn't already set one
         $opt{translation_abbrev} ||= $1;
