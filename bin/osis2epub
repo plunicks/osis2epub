@@ -468,7 +468,7 @@ until (eof $input_fh) {
 
     s/^(Revelation) of John/$1/; # use the short name of this book
 
-    if (/^(.*?) (?:(\d+):)?(\d+): (.*)/) {
+    if (/^(.*?) (?:(\d+):)?(\d+): \s*(.*)/) {
         # Consider chapter number optional because some systems of notation do
         # not include one for books of only one chapter, such as Jude.
         my $book_name = $1;
