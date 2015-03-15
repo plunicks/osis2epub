@@ -154,6 +154,8 @@ sub xml_start {
         },
         verse => sub {
             my %attr = @_;
+            return unless defined $attr{num} and $attr{_osis2epub};
+
             # delay printing verse number until next char handler run
             $current{verse_num} = $attr{num};
             $flag{new_verse} = 1;
@@ -515,6 +517,7 @@ for (@lines) {
             print "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\" />\n";
         }
 
+        warn "xp parse book $book_name\n";
         $xp->parse("<book name=\"$book_name\" />");
 
         if ($opt{html}) {
@@ -544,7 +547,7 @@ for (@lines) {
 
     $current{verse_num} = $verse_num;
 
-    $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\">$verse_text</verse>");
+    $xp->parse("<verse book=\"$book_name\" chapter=\"$chapter_num\" num=\"$verse_num\" _osis2epub=\"true\">$verse_text</verse>");
 }
 
 if ($opt{html}) {
