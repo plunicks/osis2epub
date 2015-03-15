@@ -108,6 +108,7 @@ my %flag = (
     );
 my %in_element;
 my $in_line = 0; # within a line;
+my @book_names;
 my %chapter_count;
 sub xml_start {
     my ($expat, $elem, %attr) = @_;
@@ -124,6 +125,7 @@ sub xml_start {
             } else {
                 print "\n\n$attr{name}\n";
             }
+            push @book_names, $attr{name};
         },
         chapter => sub {
             # theoretically this element should enclose the whole chapter,
@@ -393,6 +395,9 @@ if ($opt{html}) {
     print "<br />\n";
     print "<h2 align=\"center\">".($opt{translation_name}||'')."</h2>\n";
     print "</body>\n</html>\n";
+
+    ## Add table of contents (to be generated later, after processing)
+    push @filelist, "contents.html";
 } elsif (length($opt{output_file})) {
     # text mode with --output-file (-o)
     close STDOUT;
@@ -426,6 +431,33 @@ sub generate_chapter_links {
 
         return $out;
     }
+}
+
+# generate a Table of Contents
+sub generate_contents_file {
+    close STDOUT;
+    my $filename = sprintf("$opt{output_dir}/contents.html");
+    open STDOUT, ">$filename";
+    # contents.html was already added to the file list
+
+    print qq{<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xml:lang="en">
+<head>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<title>Contents</title>
+</head>
+<body>
+};
+
+    print "<ol>\n";
+    for my $book (@book_names) {
+        (my $key = $book) =~ s/ /%20/g;
+        print qq{<li><a href="$book.html">$book</a>\n};
+    }
+    print "</ol>\n";
+
+    print "</body>\n</html>\n";
 }
 
 sub getline { $_ = <$input_fh>; chomp; $_ }
@@ -486,7 +518,11 @@ for (@lines) {
         $xp->parse("<book name=\"$book_name\" />");
 
         if ($opt{html}) {
-            print "</head>\n<body><h1 align=\"center\">$book_name</h1>\n";
+            (my $key = $book_name) =~ s/ /%20/g;
+            print qq{</head>
+<body>
+<h1 align=\"center\"><a name="#$key">$book_name</a></h1>
+};
             print generate_chapter_links($book_name);
         }
     }
@@ -514,6 +550,8 @@ for (@lines) {
 if ($opt{html}) {
     print "</body>\n</html>\n";
     close STDOUT;
+
+    generate_contents_file();
 
     open my $filelist, ">$opt{output_dir}/files.list";
     print {$filelist} "$_\n" foreach @filelist;
